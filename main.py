@@ -50,3 +50,33 @@ def get_db():
 @app.get("/")
 def root():
     return {"message": "Todo API. Try /docs to use it."}
+
+
+@app.get("/todos", response_model=list[Todo])
+def list_todos(completed: bool | None = None, db: sqlite3.Connection = Depends(get_db)):
+    if completed is None:
+        rows = db.execute("SELECT * FROM todos ORDER BY id").fetchall()
+    else:
+        rows = db.execute(
+            "SELECT * FROM todos WHERE completed = ? ORDER BY id", (completed,)
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+@app.get("/todos/{todo_id}", response_model=Todo)
+def get_todo(todo_id: int, db: sqlite3.Connection = Depends(get_db)):
+    row = db.execute("SELECT * FROM todos WHERE id = ?", (todo_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    return dict(row)
+
+
+@app.post("/todos", response_model=Todo, status_code=status.HTTP_201_CREATED)
+def create_todo(todo: TodoInput, db: sqlite3.Connection = Depends(get_db)):
+    with db:
+        cursor = db.execute(
+            "INSERT INTO todos (title, description, completed) VALUES (?, ?, ?)",
+            (todo.title, todo.description, todo.completed),
+        )
+        result = get_todo(cursor.lastrowid, db)
+    return result
