@@ -80,3 +80,25 @@ def create_todo(todo: TodoInput, db: sqlite3.Connection = Depends(get_db)):
         )
         result = get_todo(cursor.lastrowid, db)
     return result
+
+
+@app.put("/todos/{todo_id}", response_model=Todo)
+def update_todo(todo_id: int, todo: TodoInput, db: sqlite3.Connection = Depends(get_db)):
+    with db:
+        cursor = db.execute(
+            "UPDATE todos SET title = ?, description = ?, completed = ? WHERE id = ?",
+            (todo.title, todo.description, todo.completed, todo_id),
+        )
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Todo not found")
+        result = get_todo(todo_id, db)
+    return result
+
+
+@app.delete("/todos/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_todo(todo_id: int, db: sqlite3.Connection = Depends(get_db)):
+    with db:
+        cursor = db.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Todo not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
